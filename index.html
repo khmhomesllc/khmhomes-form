@@ -105,8 +105,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="field"><label>Notes</label><textarea id="rep-notes" rows="2" placeholder="Optional..."></textarea></div>
   <div class="field">
     <label>Receipt (optional)</label>
-    <input type="file" id="rep-file" accept="image/*" style="display:none" onchange="handleReceipt('rep')">
-    <div id="rep-receipt-area"><button class="receipt-btn" onclick="document.getElementById('rep-file').click()">Snap / Upload Receipt</button></div>
+    <input type="file" id="rep-file-cam" accept="image/*" capture="environment" style="display:none" onchange="handleReceipt('rep','cam')">
+    <input type="file" id="rep-file-lib" accept="image/*" style="display:none" onchange="handleReceipt('rep','lib')">
+    <div id="rep-receipt-area">
+      <div style="display:flex;gap:8px">
+        <button class="receipt-btn" style="flex:1" onclick="document.getElementById('rep-file-cam').click()">Take Photo</button>
+        <button class="receipt-btn" style="flex:1" onclick="document.getElementById('rep-file-lib').click()">Upload Photo</button>
+      </div>
+    </div>
   </div>
   <button class="btn-save" onclick="saveRepair()">Save Repair Entry</button>
   <div class="history" id="repair-history"></div>
@@ -123,8 +129,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="field"><label>Notes</label><textarea id="sc-notes" rows="2" placeholder="Optional..."></textarea></div>
   <div class="field">
     <label>Receipt (optional)</label>
-    <input type="file" id="sc-file" accept="image/*" style="display:none" onchange="handleReceipt('sc')">
-    <div id="sc-receipt-area"><button class="receipt-btn" onclick="document.getElementById('sc-file').click()">Snap / Upload Receipt</button></div>
+    <input type="file" id="sc-file-cam" accept="image/*" capture="environment" style="display:none" onchange="handleReceipt('sc','cam')">
+    <input type="file" id="sc-file-lib" accept="image/*" style="display:none" onchange="handleReceipt('sc','lib')">
+    <div id="sc-receipt-area">
+      <div style="display:flex;gap:8px">
+        <button class="receipt-btn" style="flex:1" onclick="document.getElementById('sc-file-cam').click()">Take Photo</button>
+        <button class="receipt-btn" style="flex:1" onclick="document.getElementById('sc-file-lib').click()">Upload Photo</button>
+      </div>
+    </div>
   </div>
   <button class="btn-save" onclick="saveScouting()">Save Scouting Entry</button>
   <div class="history" id="scouting-history"></div>
@@ -205,8 +217,8 @@ function compressImage(file, callback) {
   reader.readAsDataURL(file);
 }
 
-function handleReceipt(prefix) {
-  var file = document.getElementById(prefix + '-file').files[0];
+function handleReceipt(prefix, source) {
+  var file = document.getElementById(prefix + '-file-' + source).files[0];
   if (!file) return;
 
   var area = document.getElementById(prefix + '-receipt-area');
@@ -307,9 +319,10 @@ function scanReceipt(prefix, imgData) {
 
 function removeReceipt(prefix) {
   receiptData[prefix] = null;
-  document.getElementById(prefix + '-file').value = '';
+  document.getElementById(prefix + '-file-cam').value = '';
+  document.getElementById(prefix + '-file-lib').value = '';
   document.getElementById(prefix + '-receipt-area').innerHTML =
-    '<button class="receipt-btn" onclick="document.getElementById(\'' + prefix + '-file\').click()">Snap / Upload Receipt</button>';
+    '<div style="display:flex;gap:8px"><button class="receipt-btn" style="flex:1" onclick="document.getElementById(\'' + prefix + '-file-cam\').click()">Take Photo</button><button class="receipt-btn" style="flex:1" onclick="document.getElementById(\'' + prefix + '-file-lib\').click()">Upload Photo</button></div>';
 }
 
 function sendToSheet(tab, row, onSuccess) {
