@@ -65,6 +65,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="tab" onclick="switchTab('repair',this)">Repair</div>
   <div class="tab" onclick="switchTab('scouting',this)">Scouting</div>
   <div class="tab" onclick="switchTab('miles',this)">Miles</div>
+  <div class="tab" onclick="switchTab('summary',this)">Summary</div>
 </div>
 
 <div id="statusMsg"></div>
@@ -155,6 +156,31 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="history" id="miles-history"></div>
 </div>
 
+<!-- SUMMARY -->
+<div id="form-summary" class="form-container" style="display:none">
+  <div class="field">
+    <label>Year</label>
+    <select id="sum-year" onchange="loadSummary()"></select>
+  </div>
+  <div id="sum-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+    <div class="hi" style="flex-direction:column;align-items:center;padding:14px">
+      <span class="hi-desc">Total Income</span><span class="hi-amt" id="card-income">$0</span></div>
+    <div class="hi" style="flex-direction:column;align-items:center;padding:14px">
+      <span class="hi-desc">Total Repairs</span><span class="hi-amt" id="card-repair" style="color:#a83232">$0</span></div>
+    <div class="hi" style="flex-direction:column;align-items:center;padding:14px">
+      <span class="hi-desc">Total Scouting</span><span class="hi-amt" id="card-scouting" style="color:#856404">$0</span></div>
+    <div class="hi" style="flex-direction:column;align-items:center;padding:14px">
+      <span class="hi-desc">Total Miles</span><span class="hi-amt" id="card-miles" style="color:#1a73e8">0</span></div>
+  </div>
+  <div id="sum-loading" class="scan-status scanning" style="display:none">Loading data...</div>
+  <div style="margin-bottom:20px"><canvas id="chart-income"></canvas></div>
+  <div style="margin-bottom:20px"><canvas id="chart-repair"></canvas></div>
+  <div style="margin-bottom:20px"><canvas id="chart-scouting"></canvas></div>
+  <div style="margin-bottom:20px"><canvas id="chart-miles"></canvas></div>
+  <div style="margin-bottom:20px"><canvas id="chart-hours"></canvas></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbwdCqO1HeN95nsenC6IBZr8apO-mF_T7O38wbzz4k9XgYakghY6FHUl0MROR35WGCmC/exec';
 
@@ -174,13 +200,14 @@ var receiptData = { rep: null, sc: null }; // stores { base64, mimeType, fileNam
 var recentEntries = { income: [], repair: [], scouting: [], miles: [] };
 
 function switchTab(tab, el) {
-  ['income','repair','scouting','miles'].forEach(function(t) {
+  ['income','repair','scouting','miles','summary'].forEach(function(t) {
     document.getElementById('form-' + t).style.display = 'none';
   });
   document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
   document.getElementById('form-' + tab).style.display = 'block';
   el.classList.add('active');
   clearStatus();
+  if (tab === 'summary') loadSummary();
 }
 
 function showStatus(msg, type) {
@@ -422,6 +449,158 @@ function saveMiles() {
     document.getElementById('mi-miles').value = '';
     document.getElementById('mi-hours').value = '';
     document.getElementById('mi-notes').value = '';
+  });
+}
+
+// ---- SUMMARY ----
+var sumCharts = {};
+var sumDataCache = null;
+
+// Populate year dropdown
+(function() {
+  var sel = document.getElementById('sum-year');
+  var curYear = new Date().getFullYear();
+  for (var y = curYear; y >= 2026; y--) {
+    var opt = document.createElement('option');
+    opt.value = y; opt.textContent = y;
+    sel.appendChild(opt);
+  }
+})();
+
+function loadSummary() {
+  var loading = document.getElementById('sum-loading');
+  loading.style.display = 'block';
+
+  fetch(API_URL + '?action=getData')
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      loading.style.display = 'none';
+      if (res.status !== 'ok') { showStatus('Error loading data', 'error'); return; }
+      sumDataCache = res.data;
+      renderSummary();
+    })
+    .catch(function(err) {
+      loading.style.display = 'none';
+      showStatus('Error: ' + err.message, 'error');
+    });
+}
+
+function getMonth(dateVal) {
+  if (!dateVal) return -1;
+  var d;
+  if (dateVal instanceof Date) {
+    d = dateVal;
+  } else {
+    d = new Date(dateVal);
+  }
+  if (isNaN(d.getTime())) return -1;
+  return d.getMonth();
+}
+
+function getYear(dateVal) {
+  if (!dateVal) return -1;
+  var d;
+  if (dateVal instanceof Date) {
+    d = dateVal;
+  } else {
+    d = new Date(dateVal);
+  }
+  if (isNaN(d.getTime())) return -1;
+  return d.getFullYear();
+}
+
+function renderSummary() {
+  var year = parseInt(document.getElementById('sum-year').value);
+  var mLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var data = sumDataCache;
+
+  // Income: col 0=date, col 3=amount
+  var incMonthly = new Array(12).fill(0);
+  var incTotal = 0;
+  (data.Income || []).forEach(function(r) {
+    if (getYear(r[0]) === year) {
+      var m = getMonth(r[0]);
+      var amt = parseFloat(r[3]) || 0;
+      if (m >= 0) { incMonthly[m] += amt; incTotal += amt; }
+    }
+  });
+
+  // Repair: col 0=date, col 3=amount
+  var repMonthly = new Array(12).fill(0);
+  var repTotal = 0;
+  (data.Repair || []).forEach(function(r) {
+    if (getYear(r[0]) === year) {
+      var m = getMonth(r[0]);
+      var amt = parseFloat(r[3]) || 0;
+      if (m >= 0) { repMonthly[m] += amt; repTotal += amt; }
+    }
+  });
+
+  // Scouting: col 0=date, col 3=amount
+  var scMonthly = new Array(12).fill(0);
+  var scTotal = 0;
+  (data.Scouting || []).forEach(function(r) {
+    if (getYear(r[0]) === year) {
+      var m = getMonth(r[0]);
+      var amt = parseFloat(r[3]) || 0;
+      if (m >= 0) { scMonthly[m] += amt; scTotal += amt; }
+    }
+  });
+
+  // Miles: col 0=date, col 2=miles, col 3=hours
+  var miMonthly = new Array(12).fill(0);
+  var hrMonthly = new Array(12).fill(0);
+  var miTotal = 0, hrTotal = 0;
+  (data.Miles || []).forEach(function(r) {
+    if (getYear(r[0]) === year) {
+      var m = getMonth(r[0]);
+      var mi = parseFloat(r[2]) || 0;
+      var hr = parseFloat(r[3]) || 0;
+      if (m >= 0) { miMonthly[m] += mi; hrMonthly[m] += hr; miTotal += mi; hrTotal += hr; }
+    }
+  });
+
+  // Update cards
+  document.getElementById('card-income').textContent = '$' + incTotal.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('card-repair').textContent = '$' + repTotal.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('card-scouting').textContent = '$' + scTotal.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('card-miles').textContent = miTotal.toLocaleString('en-US', {maximumFractionDigits:1}) + ' mi / ' + hrTotal.toLocaleString('en-US', {maximumFractionDigits:1}) + ' hr';
+
+  // Draw charts
+  drawBar('chart-income', 'Monthly Income', mLabels, incMonthly, '#2d5a3f');
+  drawBar('chart-repair', 'Monthly Repairs', mLabels, repMonthly, '#a83232');
+  drawBar('chart-scouting', 'Monthly Scouting', mLabels, scMonthly, '#856404');
+  drawBar('chart-miles', 'Monthly Miles', mLabels, miMonthly, '#1a73e8');
+  drawBar('chart-hours', 'Monthly Hours', mLabels, hrMonthly, '#6f42c1');
+}
+
+function drawBar(canvasId, title, labels, data, color) {
+  if (sumCharts[canvasId]) sumCharts[canvasId].destroy();
+  var ctx = document.getElementById(canvasId).getContext('2d');
+  sumCharts[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: title,
+        data: data,
+        backgroundColor: color + 'CC',
+        borderColor: color,
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        title: { display: true, text: title, font: { size: 14, weight: '600' }, color: '#1f2421' }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { font: { size: 11 } } },
+        x: { ticks: { font: { size: 11 } } }
+      }
+    }
   });
 }
 </script>
