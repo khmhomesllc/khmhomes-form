@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>KHMHOMES Ledger</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f1e8; color: #1f2421; min-height: 100vh; }
+
+.header { padding: 20px 16px 16px; text-align: center; background: #fffdf7; border-bottom: 1px solid #e3dbc8; position: sticky; top: 0; z-index: 10; }
+.header h1 { font-size: 22px; font-weight: 700; color: #2d5a3f; }
+.header .date { font-size: 12px; color: #5a625b; margin-top: 4px; }
+
+.tabs { display: flex; background: #fffdf7; border-bottom: 2px solid #e3dbc8; position: sticky; top: 68px; z-index: 10; }
+.tab { flex: 1; padding: 11px 4px; text-align: center; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: none; color: #5a625b; border-bottom: 3px solid transparent; transition: all 0.2s; }
+.tab.active { color: #2d5a3f; border-bottom-color: #2d5a3f; background: #d6e4dc; }
+
+.form-container { padding: 16px; max-width: 500px; margin: 0 auto; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #5a625b; margin-bottom: 6px; font-weight: 600; }
+.field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid #e3dbc8; border-radius: 8px; font-size: 16px; background: #fffdf7; color: #1f2421; -webkit-appearance: none; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: #2d5a3f; box-shadow: 0 0 0 2px #d6e4dc; }
+.field textarea { resize: vertical; min-height: 50px; }
+.row { display: flex; gap: 10px; }
+.row .field { flex: 1; }
+
+.btn-save { width: 100%; padding: 14px; background: #2d5a3f; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 8px; box-shadow: 0 4px 12px rgba(45,90,63,0.3); }
+.btn-save:active { transform: scale(0.98); }
+.btn-save:disabled { opacity: 0.5; }
+
+.receipt-btn { width: 100%; padding: 12px; background: #fffdf7; border: 1px solid #e3dbc8; border-radius: 8px; cursor: pointer; text-align: center; font-size: 13px; font-weight: 600; color: #2d5a3f; }
+.receipt-preview { position: relative; margin-top: 8px; }
+.receipt-preview img { width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px; }
+.receipt-remove { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,0.6); color: white; border: none; cursor: pointer; font-size: 16px; }
+
+.status { padding: 12px 16px; margin: 8px 16px; border-radius: 8px; font-size: 13px; text-align: center; }
+.status.success { background: #d6e4dc; color: #2d5a3f; }
+.status.error { background: #fce4e4; color: #a83232; }
+.status.info { background: #fff3cd; color: #856404; }
+
+.history { margin-top: 16px; }
+.history h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: #5a625b; margin-bottom: 8px; }
+.hi { background: #fffdf7; border: 1px solid #e3dbc8; border-radius: 8px; padding: 10px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+.hi-desc { font-size: 13px; color: #5a625b; }
+.hi-amt { font-size: 16px; font-weight: 700; color: #2d5a3f; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>KHMHOMES Ledger</h1>
+  <div class="date" id="headerDate"></div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('income',this)">Income</div>
+  <div class="tab" onclick="switchTab('repair',this)">Repair</div>
+  <div class="tab" onclick="switchTab('scouting',this)">Scouting</div>
+  <div class="tab" onclick="switchTab('miles',this)">Miles</div>
+</div>
+
+<div id="statusMsg"></div>
+
+<!-- INCOME -->
+<div id="form-income" class="form-container">
+  <div class="row">
+    <div class="field"><label>Date</label><input type="date" id="inc-date"></div>
+    <div class="field"><label>Property</label>
+      <select id="inc-property">
+        <option value="Property A - 396 Maryellen">A - 396 Maryellen</option>
+        <option value="Property B - 526 N 16th">B - 526 N 16th</option>
+      </select></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>Payment Month</label><input type="text" id="inc-month" placeholder="e.g. May 2026"></div>
+    <div class="field"><label>Amount ($)</label><input type="number" id="inc-amount" step="0.01" placeholder="0.00" inputmode="decimal"></div>
+  </div>
+  <div class="field"><label>Payment Method</label>
+    <select id="inc-method"><option>Zelle</option><option>Check</option><option>Cash</option><option>Venmo</option><option>Other</option></select></div>
+  <div class="field"><label>Notes</label><textarea id="inc-notes" rows="2" placeholder="Optional..."></textarea></div>
+  <button class="btn-save" onclick="saveIncome()">Save Income Entry</button>
+  <div class="history" id="income-history"></div>
+</div>
+
+<!-- REPAIR -->
+<div id="form-repair" class="form-container" style="display:none">
+  <div class="row">
+    <div class="field"><label>Date</label><input type="date" id="rep-date"></div>
+    <div class="field"><label>Property</label>
+      <select id="rep-property">
+        <option value="Property A - 396 Maryellen">A - 396 Maryellen</option>
+        <option value="Property B - 526 N 16th">B - 526 N 16th</option>
+      </select></div>
+  </div>
+  <div class="field"><label>Repair Item</label><input type="text" id="rep-item" placeholder="e.g. Plumber for leak"></div>
+  <div class="field"><label>Amount ($)</label><input type="number" id="rep-amount" step="0.01" placeholder="0.00" inputmode="decimal"></div>
+  <div class="field"><label>Notes</label><textarea id="rep-notes" rows="2" placeholder="Optional..."></textarea></div>
+  <div class="field">
+    <label>Receipt (optional)</label>
+    <input type="file" id="rep-file" accept="image/*" capture="environment" style="display:none" onchange="handleReceipt('rep')">
+    <div id="rep-receipt-area"><button class="receipt-btn" onclick="document.getElementById('rep-file').click()">Snap / Upload Receipt</button></div>
+  </div>
+  <button class="btn-save" onclick="saveRepair()">Save Repair Entry</button>
+  <div class="history" id="repair-history"></div>
+</div>
+
+<!-- SCOUTING -->
+<div id="form-scouting" class="form-container" style="display:none">
+  <div class="row">
+    <div class="field"><label>Date</label><input type="date" id="sc-date"></div>
+    <div class="field"><label>Amount ($)</label><input type="number" id="sc-amount" step="0.01" placeholder="0.00" inputmode="decimal"></div>
+  </div>
+  <div class="field"><label>Address / Neighborhood</label><input type="text" id="sc-address" placeholder="e.g. 284 Lucky Dr, Sunnyvale, CA"></div>
+  <div class="field"><label>Activity Description</label><input type="text" id="sc-activity" placeholder="e.g. Dinner, Gas, Hotel"></div>
+  <div class="field"><label>Notes</label><textarea id="sc-notes" rows="2" placeholder="Optional..."></textarea></div>
+  <div class="field">
+    <label>Receipt (optional)</label>
+    <input type="file" id="sc-file" accept="image/*" capture="environment" style="display:none" onchange="handleReceipt('sc')">
+    <div id="sc-receipt-area"><button class="receipt-btn" onclick="document.getElementById('sc-file').click()">Snap / Upload Receipt</button></div>
+  </div>
+  <button class="btn-save" onclick="saveScouting()">Save Scouting Entry</button>
+  <div class="history" id="scouting-history"></div>
+</div>
+
+<!-- MILES -->
+<div id="form-miles" class="form-container" style="display:none">
+  <div class="field"><label>Date</label><input type="date" id="mi-date"></div>
+  <div class="field"><label>Activity Description</label><input type="text" id="mi-activity" placeholder="e.g. Drive to Mendocino for viewing"></div>
+  <div class="row">
+    <div class="field"><label>Miles</label><input type="number" id="mi-miles" step="0.1" placeholder="0.0" inputmode="decimal"></div>
+    <div class="field"><label>Hours</label><input type="number" id="mi-hours" step="0.1" placeholder="0.0" inputmode="decimal"></div>
+  </div>
+  <div class="field"><label>Notes</label><textarea id="mi-notes" rows="2" placeholder="Optional..."></textarea></div>
+  <button class="btn-save" onclick="saveMiles()">Save Miles Entry</button>
+  <div class="history" id="miles-history"></div>
+</div>
+
+<script>
+var API_URL = 'https://script.google.com/macros/s/AKfycbwdCqO1HeN95nsenC6IBZr8apO-mF_T7O38wbzz4k9XgYakghY6FHUl0MROR35WGCmC/exec';
+
+var today = new Date().toISOString().slice(0,10);
+var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var now = new Date();
+
+document.getElementById('headerDate').textContent = days[now.getDay()] + ', ' + months[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear();
+document.getElementById('inc-date').value = today;
+document.getElementById('rep-date').value = today;
+document.getElementById('sc-date').value = today;
+document.getElementById('mi-date').value = today;
+document.getElementById('inc-month').value = months[now.getMonth()] + ' ' + now.getFullYear();
+
+var receiptHas = { rep: false, sc: false };
+var recentEntries = { income: [], repair: [], scouting: [], miles: [] };
+
+function switchTab(tab, el) {
+  ['income','repair','scouting','miles'].forEach(function(t) {
+    document.getElementById('form-' + t).style.display = 'none';
+  });
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.getElementById('form-' + tab).style.display = 'block';
+  el.classList.add('active');
+  clearStatus();
+}
+
+function showStatus(msg, type) {
+  document.getElementById('statusMsg').innerHTML = '<div class="status ' + type + '">' + msg + '</div>';
+  if (type === 'success') setTimeout(clearStatus, 3000);
+}
+function clearStatus() { document.getElementById('statusMsg').innerHTML = ''; }
+
+function handleReceipt(prefix) {
+  var file = document.getElementById(prefix + '-file').files[0];
+  if (!file) return;
+  receiptHas[prefix] = true;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById(prefix + '-receipt-area').innerHTML =
+      '<div class="receipt-preview"><img src="' + e.target.result + '"><button class="receipt-remove" onclick="removeReceipt(\'' + prefix + '\')">&times;</button></div>';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeReceipt(prefix) {
+  receiptHas[prefix] = false;
+  document.getElementById(prefix + '-file').value = '';
+  document.getElementById(prefix + '-receipt-area').innerHTML =
+    '<button class="receipt-btn" onclick="document.getElementById(\'' + prefix + '-file\').click()">Snap / Upload Receipt</button>';
+}
+
+function sendToSheet(tab, row, onSuccess) {
+  showStatus('Saving...', 'info');
+  fetch(API_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tab: tab, row: row })
+  }).then(function() {
+    showStatus('Saved to Google Sheet!', 'success');
+    if (onSuccess) onSuccess();
+  }).catch(function(err) {
+    showStatus('Error: ' + err.message + '. Check your connection.', 'error');
+  });
+}
+
+function addHistory(tab, desc, amount) {
+  recentEntries[tab].unshift({ desc: desc, amount: amount });
+  var container = document.getElementById(tab + '-history');
+  if (recentEntries[tab].length === 1) container.innerHTML = '<h3>Saved this session</h3>';
+  var items = recentEntries[tab].map(function(e) {
+    var amtStr = typeof e.amount === 'number' ? '$' + e.amount.toFixed(2) : e.amount;
+    return '<div class="hi"><span class="hi-desc">' + e.desc + '</span><span class="hi-amt">' + amtStr + '</span></div>';
+  }).join('');
+  container.innerHTML = '<h3>Saved this session</h3>' + items;
+}
+
+function saveIncome() {
+  var d = document.getElementById('inc-date').value;
+  var p = document.getElementById('inc-property').value;
+  var m = document.getElementById('inc-month').value;
+  var a = parseFloat(document.getElementById('inc-amount').value);
+  var method = document.getElementById('inc-method').value;
+  var n = document.getElementById('inc-notes').value || '';
+  if (!d || !a) { showStatus('Please enter date and amount.', 'error'); return; }
+  sendToSheet('Income', [d, p, m, a, method, n], function() {
+    addHistory('income', p + ' - ' + m, a);
+    document.getElementById('inc-amount').value = '';
+    document.getElementById('inc-notes').value = '';
+  });
+}
+
+function saveRepair() {
+  var d = document.getElementById('rep-date').value;
+  var p = document.getElementById('rep-property').value;
+  var item = document.getElementById('rep-item').value || '';
+  var a = parseFloat(document.getElementById('rep-amount').value);
+  var n = document.getElementById('rep-notes').value || '';
+  var rec = receiptHas.rep ? 'Yes' : 'No';
+  if (!d || !a) { showStatus('Please enter date and amount.', 'error'); return; }
+  sendToSheet('Repair', [d, p, item, a, n, rec], function() {
+    addHistory('repair', p + ' - ' + item, a);
+    document.getElementById('rep-item').value = '';
+    document.getElementById('rep-amount').value = '';
+    document.getElementById('rep-notes').value = '';
+    removeReceipt('rep');
+  });
+}
+
+function saveScouting() {
+  var d = document.getElementById('sc-date').value;
+  var a = parseFloat(document.getElementById('sc-amount').value);
+  var addr = document.getElementById('sc-address').value || '';
+  var act = document.getElementById('sc-activity').value || '';
+  var n = document.getElementById('sc-notes').value || '';
+  var rec = receiptHas.sc ? 'Yes' : 'No';
+  if (!d || !a) { showStatus('Please enter date and amount.', 'error'); return; }
+  sendToSheet('Scouting', [d, addr, act, a, rec, n], function() {
+    addHistory('scouting', addr || act, a);
+    document.getElementById('sc-address').value = '';
+    document.getElementById('sc-activity').value = '';
+    document.getElementById('sc-amount').value = '';
+    document.getElementById('sc-notes').value = '';
+    removeReceipt('sc');
+  });
+}
+
+function saveMiles() {
+  var d = document.getElementById('mi-date').value;
+  var act = document.getElementById('mi-activity').value || '';
+  var miles = parseFloat(document.getElementById('mi-miles').value) || '';
+  var hours = parseFloat(document.getElementById('mi-hours').value) || '';
+  var n = document.getElementById('mi-notes').value || '';
+  if (!d) { showStatus('Please enter a date.', 'error'); return; }
+  if (!miles && !hours) { showStatus('Please enter miles or hours.', 'error'); return; }
+  sendToSheet('Miles', [d, act, miles, hours, n], function() {
+    addHistory('miles', act, miles + ' mi / ' + hours + ' hr');
+    document.getElementById('mi-activity').value = '';
+    document.getElementById('mi-miles').value = '';
+    document.getElementById('mi-hours').value = '';
+    document.getElementById('mi-notes').value = '';
+  });
+}
+</script>
+</body>
+</html>
