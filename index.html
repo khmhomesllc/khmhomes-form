@@ -263,21 +263,21 @@ function handleReceipt(prefix, source) {
     // Show preview
     area.innerHTML =
       '<div class="receipt-preview"><img src="' + result.dataUrl + '"><button class="receipt-remove" onclick="removeReceipt(\'' + prefix + '\')">&times;</button></div>' +
-      '<div class="scan-status scanning">Scanning receipt & uploading to Drive...</div>';
+      '<div class="scan-status scanning">Uploading to Drive...</div>';
 
-    // Send to Apps Script for Gemini scan + Drive upload
-    scanReceipt(prefix, result);
+    // Upload to Google Drive only (no Gemini scan)
+    uploadReceipt(prefix, result);
   });
 }
 
-function scanReceipt(prefix, imgData) {
+function uploadReceipt(prefix, imgData) {
   var area = document.getElementById(prefix + '-receipt-area');
 
   fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({
-      action: 'scan_receipt',
+      action: 'upload_receipt',
       image: imgData.base64,
       mimeType: imgData.mimeType,
       fileName: imgData.fileName
@@ -288,51 +288,13 @@ function scanReceipt(prefix, imgData) {
     var scanDiv = area.querySelector('.scan-status');
     if (!scanDiv) return;
 
-    // Store drive link
     if (data.driveLink) {
       receiptData[prefix].driveLink = data.driveLink;
-    }
-
-    // Build result message
-    var parts = [];
-    if (data.amount) parts.push('$' + data.amount.toFixed(2));
-    if (data.date) parts.push(data.date);
-    if (data.merchant) parts.push(data.merchant);
-
-    if (parts.length > 0) {
       scanDiv.className = 'scan-status scanned';
-      scanDiv.innerHTML = 'Scanned: ' + parts.join(' | ');
-
-      // Auto-fill date and amount
-      if (data.date) {
-        document.getElementById(prefix + '-date').value = data.date;
-      }
-      if (data.amount) {
-        document.getElementById(prefix + '-amount').value = data.amount;
-      }
+      scanDiv.innerHTML = 'Saved to Drive <a class="receipt-drive-link" href="' + data.driveLink + '" target="_blank">View</a>';
     } else {
       scanDiv.className = 'scan-status scan-error';
-      scanDiv.textContent = 'Could not read receipt. Please enter manually.';
-    }
-
-    // Show Drive link if saved
-    if (data.driveLink) {
-      var linkEl = document.createElement('a');
-      linkEl.className = 'receipt-drive-link';
-      linkEl.href = data.driveLink;
-      linkEl.target = '_blank';
-      linkEl.textContent = 'View in Drive';
-      scanDiv.appendChild(document.createElement('br'));
-      scanDiv.appendChild(linkEl);
-    }
-
-    // Show errors if any
-    if (data.scanError) {
-      scanDiv.className = 'scan-status scan-error';
-      scanDiv.textContent = 'Scan error: ' + data.scanError;
-    }
-    if (data.driveError) {
-      console.log('Drive upload error:', data.driveError);
+      scanDiv.textContent = 'Upload error: ' + (data.driveError || 'Unknown');
     }
   })
   .catch(function(err) {
